@@ -1,43 +1,3 @@
-/*
- ECE 341, Spring 2013,
- Siddharth Dedhia
- sdedhia
- Prelab 2 - Node and Router IO buffer as per handout spec for prelab
- */
-
-/* top module for prelab */
-
-module prelab_dut(
-  input logic clk, rst_b, pkt_avail_for_fifo, data_taken_from_router, wr_data_to_router, pkt_avail_for_node_from_router,
-  input pkt_t data_for_fifo, data_for_router_to_node_to_tb,
-  output logic data_empty, data_available_tb_node_router, fifo_full, data_avail_node_tb,
-  output pkt_t data_fifo_router, data_from_router_to_node_to_tb);
-
-logic put_inbound, free_inbound, put_outbound, free_outbound;
-logic[7:0] payload_outbound, payload_inbound;
-     /* node */
-  node node_ut (.clk(clk), .rst_b(rst_b), .pkt_in(data_for_fifo), .pkt_in_avail(pkt_avail_for_fifo),
-        .cQ_full(fifo_full), .pkt_out(data_from_router_to_node_to_tb), .pkt_out_avail(data_avail_node_tb),
-        .free_outbound(free_outbound), .put_outbound(put_outbound),
-        .payload_outbound(payload_outbound), .free_inbound(free_inbound),
-        .put_inbound(put_inbound), .payload_inbound(payload_inbound));
-    /* input buffer of router */
-  node_to_router node_to_router_ut (.clk(clk) ,.rst_b(rst_b), .put_inbound(put_outbound),
-      .clear_data_available(data_taken_from_router),
-      .free_inbound(free_outbound), .data_available(data_available_tb_node_router),
-      .data_from_node(data_fifo_router),
-      .payload_inbound(payload_outbound));
-
-    /* output buffer of router */
-  router_to_node router_to_node_ut (.clk(clk), .rst_b(rst_b), .wr_data(wr_data_to_router),
-                                    .free_outbound(free_inbound),
-                                    .clr_empty(pkt_avail_for_node_from_router),
-                                    .put_outbound(put_inbound), .data_empty(data_empty),
-                                    .data_wires(data_for_router_to_node_to_tb),
-                                    .payload_outbound(payload_inbound));
-
-  endmodule
-
 /* Top node module */
 
 module node(clk, rst_b, pkt_in, pkt_in_avail, cQ_full, pkt_out, pkt_out_avail,
@@ -175,7 +135,7 @@ module fifo_node_router
        endcase
      end
 
-  assign payload_out = buffer[select];
+  assign payload_out = buffer[3-select];
 
 endmodule: fifo_node_router
 
@@ -200,8 +160,8 @@ module handshake_router_node
       data_wr <= 0;
     else begin
       if (wr_and_shift) begin
-        data_wr <= data_wr >> 8;
-        data_wr[31:24] <= pl_inbound;
+        data_wr <= data_wr << 8;
+        data_wr[7:0] <= pl_inbound;
       end
     end
   end
