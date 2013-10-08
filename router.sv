@@ -322,9 +322,9 @@ case (cs)
           end
         end
         else begin
-          if (destination[rr_priority] > 5 ) begin
-            $display("fudgeeeeeeee");
-            end
+      //    if (destination[rr_priority] > 5 ) begin
+        //    $display("fudgeeeeeeee");
+          //  end
           if (destination[rr_priority] < 3) begin
            add_to_queue.port3 = 1;
            port_number[3] = rr_priority;
@@ -370,9 +370,9 @@ case (cs)
                 end
               end
               else begin
-                if (destination[rr_counter] > 5 ) begin
-            $display("fudgeeeeeeee, destination[rr_priority] = %d and rr_priority = %d",destination[rr_counter], rr_counter);
-            end
+              //  if (destination[rr_counter] > 5 ) begin
+            //$display("fudgeeeeeeee, destination[rr_priority] = %d and rr_priority = %d",destination[rr_counter], rr_counter);
+            //end
                 if (destination[rr_counter] < 3) begin
                  add_to_queue.port3 = 1;
                  port_number[3] = rr_counter;
@@ -675,7 +675,7 @@ module node_to_router
       else
         ns = take_data;
     end
-    default : $display("incorrect state in the node router fsm, driving the outputs, current state is %d and ns is %d", cs, ns);
+    default : ns = wait_state;
    endcase
  end
 
