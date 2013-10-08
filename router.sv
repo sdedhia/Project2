@@ -1,3 +1,9 @@
+/* Siddharth Dedhia
+   ECE 341, Fall 2013
+   A router that transfers packets to ports concurrently . If there are
+   conflicts with destination then a round robin priority is used */
+
+
 `default_nettype none
 /*
  * A router transfers packets between nodes and other routers.
@@ -136,8 +142,101 @@ assign none_available = (num_available == 0);
 assign single_available = (num_available == 1);
 assign multiple_available = (~single_available && ~none_available);
 
-/* assign the 4bit signal to the wires that go into the respective queues. The queues drive the non asserted bits with a z */
+/* assign the 4bit signal to the wires that go into the respective queues. */
 assign clear_data_available = clear_data_available_p0 | clear_data_available_p1 | clear_data_available_p2 | clear_data_available_p3;
+
+/* concurrency variables */
+logic no_conflict0, no_conflict1, no_conflict2, no_conflict3 , no_conflict4, no_conflict5;
+logic no_conflict;
+
+
+always_comb begin
+   if (((~added_to_queue_register[3]) & data_available.port3) && ((~added_to_queue_register[2]) & data_available.port2)) begin
+     no_conflict0 = (destination[3] != destination[2]);
+     if (ROUTERID == 0) begin
+       if (destination[3] >= 3 && destination[2] >= 3)
+       no_conflict0 = 0;
+       end
+     else begin
+       if (destination[3] < 3 && destination[2] < 3)
+        no_conflict0 = 0;
+     end
+    end
+   else no_conflict0 = 1;
+  end
+always_comb begin
+   if (((~added_to_queue_register[0]) & data_available.port0) && ((~added_to_queue_register[1]) & data_available.port1))begin
+     no_conflict1 = (destination[0] != destination[1]);
+     if (ROUTERID == 0) begin
+       if (destination[0] >= 3 && destination[1] >= 3)
+       no_conflict1 = 0;
+       end
+     else begin
+       if (destination[0] < 3 && destination[1] < 3)
+        no_conflict1 = 0;
+     end
+    end
+    else no_conflict1 = 1;
+  end
+always_comb begin
+   if (((~added_to_queue_register[1]) & data_available.port1) && ((~added_to_queue_register[2]) & data_available.port2))begin
+     no_conflict2 = (destination[1] != destination[2]);
+     if (ROUTERID == 0) begin
+       if (destination[1] >= 3 && destination[2] >= 3)
+       no_conflict2 = 0;
+       end
+     else begin
+       if (destination[1] < 3 && destination[2] < 3)
+        no_conflict2 = 0;
+     end
+    end
+    else no_conflict2 = 1;
+  end
+always_comb begin
+   if (((~added_to_queue_register[1]) & data_available.port1) && ((~added_to_queue_register[3]) & data_available.port3))begin
+     no_conflict3 = (destination[1] != destination[3]);
+     if (ROUTERID == 0) begin
+       if (destination[3] >= 3 && destination[1] >= 3)
+       no_conflict3 = 0;
+       end
+     else begin
+       if (destination[3] < 3 && destination[1] < 3)
+        no_conflict3 = 0;
+     end
+    end
+    else no_conflict3 = 1;
+  end
+always_comb begin
+   if (((~added_to_queue_register[0]) & data_available.port0) && ((~added_to_queue_register[2]) & data_available.port2))begin
+     no_conflict4 = (destination[0] != destination[2]);
+    if (ROUTERID == 0) begin
+       if (destination[0] >= 3 && destination[2] >= 3)
+       no_conflict4 = 0;
+       end
+     else begin
+       if (destination[0] < 3 && destination[2] < 3)
+        no_conflict4 = 0;
+     end
+    end
+    else no_conflict4 = 1;
+  end
+always_comb begin
+   if (((~added_to_queue_register[3]) & data_available.port3) && ((~added_to_queue_register[0]) & data_available.port0))begin
+     no_conflict5 = (destination[3] != destination[0]);
+     if (ROUTERID == 0) begin
+       if (destination[3] >= 3 && destination[0] >= 3)
+       no_conflict5 = 0;
+       end
+     else begin
+       if (destination[3] < 3 && destination[0] < 3)
+        no_conflict5 = 0;
+     end
+    end
+    else no_conflict5 = 1;
+  end
+
+assign no_conflict = no_conflict0 & no_conflict1 & no_conflict2 & no_conflict3 & no_conflict4 & no_conflict5;
+
 
 /* connecting the input port buffers of the router to the respective node to router handshake FSM-D's */
 
@@ -258,12 +357,9 @@ case (cs)
           4'b0100: p = 2;
           4'b1000: p = 3;
           default: begin
-          //    $display("shouldnt happen: %b, added_to_queue_register %b, num_available %d",data_available , added_to_queue_register, num_available);
               p = 0;
              end
         endcase
-      //$display("hurrah , data_available = %b, destination[0] = %b, destination[1] = %b\
-       // destination[2] = %d,destination[3] = %d," , data_available, destination[0], destination[1], destination[2], destination[3]);
         if ( ROUTERID == 0) begin
           if (destination[p] >= 3) begin
           add_to_queue.port1 = 1;
@@ -297,7 +393,8 @@ case (cs)
         end
       end
     end
-    else if (multiple_available) begin
+    /* for concurrent transfers */
+    else if (multiple_available && ~no_conflict) begin
       update_priority = 1;
       ns = rr;
       count_up = 1;
@@ -322,9 +419,6 @@ case (cs)
           end
         end
         else begin
-      //    if (destination[rr_priority] > 5 ) begin
-        //    $display("fudgeeeeeeee");
-          //  end
           if (destination[rr_priority] < 3) begin
            add_to_queue.port3 = 1;
            port_number[3] = rr_priority;
@@ -337,6 +431,137 @@ case (cs)
            end
         end
       end
+    end
+    else if (multiple_available && no_conflict) begin
+     ns = wait_state;
+     if (ROUTERID == 0) begin
+      if (data_available[0] && ~added_to_queue_register[0]) begin
+        if (destination[0] >= 3) begin
+          add_to_queue.port1 = 1;
+          rem_add = rem_add | (1 << 0);
+          port_number[1] = 0;
+          end
+          else begin
+            if (destination[0] == 0) begin
+              add_to_queue.port0 = 1;
+              port_number[0] = 0;
+              rem_add = rem_add | (1 << 0);
+            end
+            else begin
+              add_to_queue[destination[0]+1] = 1;
+              port_number[destination[0]+1] = 0;
+              rem_add = rem_add | (1 << 0);
+            end
+          end
+        end
+      if (data_available[1] && ~added_to_queue_register[1]) begin
+        if (destination[1] >= 3) begin
+          add_to_queue.port1 = 1;
+          rem_add = rem_add | (1 << 1);
+          port_number[1] = 1;
+          end
+          else begin
+            if (destination[1] == 0) begin
+              add_to_queue.port0 = 1;
+              port_number[0] = 1;
+              rem_add = rem_add | (1 << 1);
+            end
+            else begin
+              add_to_queue[destination[1]+1] = 1;
+              port_number[destination[1]+1] = 1;
+              rem_add = rem_add | (1 << 1);
+            end
+          end
+        end
+      if (data_available[2] && ~added_to_queue_register[2]) begin
+        if (destination[2] >= 3) begin
+          add_to_queue.port1 = 1;
+          rem_add = rem_add | (1 << 2);
+          port_number[1] = 2;
+          end
+          else begin
+            if (destination[2] == 0) begin
+              add_to_queue.port0 = 1;
+              port_number[0] = 2;
+              rem_add = rem_add | (1 << 2);
+            end
+            else begin
+              add_to_queue[destination[2]+1] = 1;
+              port_number[destination[2]+1] = 2;
+              rem_add = rem_add | (1 << 2);
+            end
+          end
+      end
+      if (data_available[3] && ~added_to_queue_register[3]) begin
+        if (destination[3] >= 3) begin
+          add_to_queue.port1 = 1;
+          rem_add = rem_add | (1 << 3);
+          port_number[1] = 3;
+          end
+          else begin
+            if (destination[3] == 0) begin
+              add_to_queue.port0 = 1;
+              port_number[0] = 3;
+              rem_add = rem_add | (1 << 3);
+            end
+            else begin
+              add_to_queue[destination[3]+1] = 1;
+              port_number[destination[3]+1] = 3;
+              rem_add = rem_add | (1 << 3);
+            end
+          end
+        end
+    end
+    else begin
+      if (data_available[0] && ~added_to_queue_register[0]) begin
+        if (destination[0] < 3) begin
+           add_to_queue.port3 = 1;
+           port_number[3] = 0;
+           rem_add = rem_add | (1 << 0);
+           end
+          else begin
+              add_to_queue[destination[0]-3] = 1;
+              port_number[destination[0]-3] = 0;
+              rem_add = rem_add | (1 << 0);
+           end
+      end
+      if (data_available[1] && ~added_to_queue_register[1]) begin
+        if (destination[1] < 3) begin
+           add_to_queue.port3 = 1;
+           port_number[3] = 1;
+           rem_add = rem_add | (1 << 1);
+           end
+          else begin
+              add_to_queue[destination[1]-3] = 1;
+              port_number[destination[1]-3] = 1;
+              rem_add = rem_add | (1 << 1);
+           end
+      end
+      if (data_available[2] && ~added_to_queue_register[2]) begin
+        if (destination[2] < 3) begin
+           add_to_queue.port3 = 1;
+           port_number[3] = 2;
+           rem_add = rem_add | (1 << 2);
+           end
+          else begin
+              add_to_queue[destination[2]-3] = 1;
+              port_number[destination[2]-3] = 2;
+              rem_add = rem_add | (1 << 2);
+           end
+      end
+      if (data_available[3] && ~added_to_queue_register[3]) begin
+        if (destination[3] < 3) begin
+           add_to_queue.port3 = 1;
+           port_number[3] = 3;
+           rem_add = rem_add | (1 << 3);
+           end
+          else begin
+              add_to_queue[destination[3]-3] = 1;
+              port_number[destination[3]-3] = 3;
+              rem_add = rem_add | (1 << 3);
+          end
+      end
+     end
     end
   end
   rr: begin
@@ -370,9 +595,6 @@ case (cs)
                 end
               end
               else begin
-              //  if (destination[rr_counter] > 5 ) begin
-            //$display("fudgeeeeeeee, destination[rr_priority] = %d and rr_priority = %d",destination[rr_counter], rr_counter);
-            //end
                 if (destination[rr_counter] < 3) begin
                  add_to_queue.port3 = 1;
                  port_number[3] = rr_counter;
@@ -422,7 +644,6 @@ enum logic {empty = 1'd0, dequeue = 1'd1} cs, ns;
 // clear data available must clear added_to_queue flag in master fsm
 
   always_ff @(posedge clk or negedge rst_b) begin
-   //$display ("q0 = %d , q1 = %d , q2 = %d , q3 = %d",queuememory[0], queuememory[1], queuememory[2], queuememory[3]);
     if (~rst_b) begin
       cs <= empty;
     end
@@ -535,7 +756,6 @@ always_ff @(posedge clk or negedge rst_b) begin
         3'b100: begin
                   //queue empty, noone to add to queue, data is not empty
                ns = dequeue;
-          //     $display("assert first %d == last %d", first, last);
              end
         3'b101: begin
                   //queue empty, noone wants to add to queue, data is empty
