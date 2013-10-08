@@ -111,7 +111,7 @@ module top();
   generate
     for(k=0; k<2; k=k+1) begin
       router #(k) router_inst(.clk, .rst_b,
-                         .free_outbound(free_router_in[k]),
+                         .free_outbound(free_router_in[k]), 
                          .put_outbound(put_router_out[k]),
                          .payload_outbound(payload_router_out[k]),
                          .free_inbound(free_router_out[k]),
@@ -129,7 +129,7 @@ module top();
                           .cQ_full(cQ_full[j]),
                           .pkt_out(pkt_out[j]),
                           .pkt_out_avail(pkt_out_avail[j]),
-                          .free_inbound(free_router_node[j]),
+                          .free_inbound(free_router_node[j]), 
                           .put_inbound(put_router_node[j]),
                           .payload_inbound(payload_router_node[j]),
                           .free_outbound(free_node_router[j]),
@@ -141,5 +141,5 @@ module top();
   // testbench provides stimulus to the DUT
   tb tb1(.*);
 
-endmodule
+endmodule 
 

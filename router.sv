@@ -1,13 +1,16 @@
-/* Siddharth Dedhia
+/* Siddharth Dedhia (sdedhia)
    ECE 341, Fall 2013
+   Project 2: NOC
    A router that transfers packets to ports concurrently . If there are
-   conflicts with destination then a round robin priority is used */
-
+   conflicts with multiple nodes wanting to send to the same destination
+   then a round robin priority is used to ensure fairness.
+   */
 
 `default_nettype none
 /*
  * A router transfers packets between nodes and other routers.
  */
+
 module router(clk, rst_b,
               free_outbound, put_outbound, payload_outbound,
               free_inbound, put_inbound, payload_inbound);
@@ -24,9 +27,7 @@ module router(clk, rst_b,
   input [3:0] put_inbound;
   input [3:0][7:0] payload_inbound;
 
-/* need a wire for this since its driven by the multiple queues at the output buffer at each port
-   define below. However the queues when required assert the particular clear_data_available port
-   to 0 and the rest to z. */
+/* Port numbers used to control muxes at the output buffers of each port */
 
 enum logic {wait_state = 1'd0, rr = 1'd1} cs, ns;
 typedef enum logic[1:0]{port0 = 2'd0, port1 = 2'd1, port2 = 2'd2, port3 = 2'd3} p_number;
@@ -134,6 +135,7 @@ pkt_t [3:0] data_to_node;
 /* 32 bit wires from input buffer of each port to muxes */
 pkt_t [3:0] data_to_port;
 logic [3:0] clear_data_available_p0, clear_data_available_p1, clear_data_available_p2, clear_data_available_p3;
+
 /* How many ports have data available that have not been added to queues already*/
 
 assign num_available = ((~added_to_queue_register[3]) & data_available.port3)+((~added_to_queue_register[2]) & data_available.port2)+
@@ -146,6 +148,7 @@ assign multiple_available = (~single_available && ~none_available);
 assign clear_data_available = clear_data_available_p0 | clear_data_available_p1 | clear_data_available_p2 | clear_data_available_p3;
 
 /* concurrency variables */
+
 logic no_conflict0, no_conflict1, no_conflict2, no_conflict3 , no_conflict4, no_conflict5;
 logic no_conflict;
 
@@ -237,7 +240,6 @@ always_comb begin
 
 assign no_conflict = no_conflict0 & no_conflict1 & no_conflict2 & no_conflict3 & no_conflict4 & no_conflict5;
 
-
 /* connecting the input port buffers of the router to the respective node to router handshake FSM-D's */
 
 node_to_router p0 (.clk(clk) , .rst_b(rst_b), .put_inbound(put_inbound[0]), .clear_data_available(clear_data_available.port0),
@@ -250,6 +252,7 @@ node_to_router p3 (.clk(clk) , .rst_b(rst_b), .put_inbound(put_inbound[3]), .cle
    .free_inbound(free_inbound[3]), .data_available(data_available.port3), .data_from_node(data_to_port[3]), .payload_inbound(payload_inbound[3]));
 
 /* connecting the buses to the output buffers and the respective FSM-Ds to send data to node */
+
 queue port0_output(.clk(clk), .rst_b(rst_b), .add_to_queue(add_to_queue.port0), .data_empty(data_empty.port0),
                     .port_num(port_number[0]), .wr_data(wr_data.port0), .select(select_out.port0),
                     .clear_data_available(clear_data_available_p0));
@@ -279,6 +282,7 @@ router_to_node p3_out (.clk(clk), .rst_b(rst_b), .wr_data(wr_data.port3), .free_
 
 
 /* update the added to queue register */
+
  always_ff @(posedge clk or negedge rst_b) begin
    if (~rst_b)begin
       added_to_queue_register <= 0;
@@ -613,6 +617,7 @@ case (cs)
 end
 endmodule
 
+/* a module definition of a 4to1 mux */
 
 module mux4to1
   (input logic[1:0] select,
@@ -622,6 +627,9 @@ module mux4to1
 assign data_out = data_in[select];
 
 endmodule
+
+/* queues are used at each of the output buffers to hold pipelined values to
+   be sent to the node */
 
 module queue
   (input logic clk, rst_b, add_to_queue, data_empty,
@@ -640,8 +648,6 @@ module queue
   logic increment_counter, decrement_counter, enable_counter, wr_queue, increment_last, increment_first, queue_empty;
 
 enum logic {empty = 1'd0, dequeue = 1'd1} cs, ns;
-
-// clear data available must clear added_to_queue flag in master fsm
 
   always_ff @(posedge clk or negedge rst_b) begin
     if (~rst_b) begin

@@ -1,3 +1,10 @@
+/* Siddharth Dedhia (sdedhia)
+   ECE 341, Fall 2013,
+   Project 2 : NOC
+   node.sv
+*/
+
+
 /* Top node module */
 
 module node(clk, rst_b, pkt_in, pkt_in_avail, cQ_full, pkt_out, pkt_out_avail,
@@ -266,7 +273,6 @@ module fifo(clk, rst_b, data_in, we, re, full, empty, data_out);
 
 
   always_ff @(posedge clk or negedge rst_b) begin
-   // $display ("q0 = %d , q1 = %d , q2 = %d , q3 = %d",fifomemory[0], fifomemory[1], fifomemory[2], fifomemory[3]);
     if (~rst_b) begin
       fifomemory[3:0] <= 0;
       count <= 0;
@@ -306,7 +312,6 @@ module fifo(clk, rst_b, data_in, we, re, full, empty, data_out);
                 end
               endcase
   end
-//$display ("q0 = %d , q1 = %d , q2 = %d , q3 = %d",fifomemory[0], fifomemory[1], fifomemory[2], fifomemory[3] );
    assign data_out = fifomemory[first];
    assign empty = (count == 0) ? 1 : 0;
    assign full = (count == 4) ? 1 : 0;
