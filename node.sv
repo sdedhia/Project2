@@ -142,6 +142,7 @@ module fifo_node_router
        endcase
      end
 
+/* (3 - select) since we want to set MSB first as per spec */
   assign payload_out = buffer[3-select];
 
 endmodule: fifo_node_router
